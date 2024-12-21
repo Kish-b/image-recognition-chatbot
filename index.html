@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image and Text Chatbot with Compressor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(120deg, #ffffff, #a3a3a3);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: slideIn 1s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            margin: 0;
+            padding: 20px;
+            background: #66a6ff;
+            color: white;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        p {
+            margin: 10px;
+            font-size: 1em;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-direction: column;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        label,
+        button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #66a6ff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        label:hover,
+        button:hover {
+            background: #89f7fe;
+        }
+
+        #chatOutput {
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .chat-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .chat-message:nth-child(odd) {
+            background: #e0f7fa;
+        }
+
+        .chat-message:nth-child(even) {
+            background: #fce4ec;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #imagePreview {
+            margin-top: 20px;
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .input-row input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .head{
+            display: flex;
+background-color:  #66a6ff;
+align-items: center;
+gap: 10px;
+        }
+        img{
+            height: 50px;
+            width: 50px;
+            margin-left: 20px;
+            margin-right: 30px;
+        }
+    .sig{
+margin-left: 80px;
+
+    }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+<div class="head">
+        <img src="images/logo final .png" alt="">
+        <h1>Byte Builders Chatbot <button onclick="signout()" class="sig">Sign Out</button></h1> 
+
+    </div>
+        <p>Upload an image or ask a question!</p>
+        <div class="controls">
+            <label for="imageInput">Choose Image</label>
+            <input type="file" id="imageInput" accept="image/*" />
+            <img id="imagePreview" alt="Image Preview" />
+            <button id="uploadButton">upload & Analyze</button>
+        </div>
+        <div id="chatOutput"></div>
+        <div class="input-row">
+            <input type="text" id="textInput" placeholder="Ask a question..." />
+            <button id="textSendButton">Send</button>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        const uploadButton = document.getElementById("uploadButton");
+        const imageInput = document.getElementById("imageInput");
+        const chatOutput = document.getElementById("chatOutput");
+        const imagePreview = document.getElementById("imagePreview");
+        const textInput = document.getElementById("textInput");
+        const textSendButton = document.getElementById("textSendButton");
+
+        const chat = {
+            "model": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Give me the details of the image in a single line."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": ""
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_new_tokens": 100
+        };
+
+        // Image Compressor
+        function compressImage(file, maxWidth, maxHeight, quality, callback) {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height *= maxWidth / width));
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width *= maxHeight / height));
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedData = canvas.toDataURL("image/jpeg", quality);
+                    callback(compressedData);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Image Upload and Preview
+        imageInput.addEventListener("change", function () {
+            const file = imageInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    imagePreview.src = event.target.result;
+                    imagePreview.style.display = "block";
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        uploadButton.addEventListener("click", () => {
+            const file = imageInput.files[0];
+            if (!file) {
+                alert("Please select an image!");
+                return;
+            }
+
+            compressImage(file, 800, 800, 0.7, async (compressedData) => {
+                chat.messages[0].content[1].image_url.url = compressedData;
+                displayMessage("Chatbot: Analyzing image...");
+
+                try {
+                    const response = await fetch("https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-11B-Vision-Instruct/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            Authorization: "Bearer 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",
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(chat),
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        displayMessage(`Chatbot: ${result.choices[0].message.content}`);
+                    } else {
+                        throw new Error(result.error || "Unknown error");
+                    }
+                } catch (error) {
+                    displayMessage(`Chatbot: Error: ${error.message}`);
+                }
+            });
+        });
+
+        textSendButton.addEventListener("click", async () => {
+            const userInput = textInput.value.trim();
+            if (!userInput) {
+                alert("Please enter a message!");
+                return;
+            }
+
+            displayMessage(`You: ${userInput}`);
+            textInput.value = "";
+
+            displayMessage("Chatbot: Thinking...");
+            chat.messages[0].content.push({
+                "type": "text",
+                "text": userInput,
+            });
+
+            try {
+                const response = await fetch("https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-11B-Vision-Instruct/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        Authorization: "Bearer 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",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(chat),
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    displayMessage(`Chatbot: ${result.choices[0].message.content}`);
+                } else {
+                    throw new Error(result.error || "Unknown error");
+                }
+            } catch (error) {
+                displayMessage(`Chatbot: Error: ${error.message}`);
+            }
+        });
+
+        function displayMessage(message) {
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("chat-message");
+            messageDiv.textContent = message;
+            chatOutput.appendChild(messageDiv);
+            chatOutput.scrollTop = chatOutput.scrollHeight;
+        }
+
+        // Sign out function
+        async function signout() {
+            try {
+                const response = await fetch("https://www.google.com/accounts/Logout", {
+                    method: "POST",
+                    credentials: "include"
+                });
+
+                if (response.ok) {
+                    displayMessage("Sign-out successful!");
+                } else {
+                    throw new Error("Sign-out failed");
+                }
+            } catch (error) {
+                displayMessage(`Sign-out Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+
+</html>
